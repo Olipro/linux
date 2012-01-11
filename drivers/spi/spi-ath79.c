@@ -296,7 +296,7 @@ err_put_master:
 	return ret;
 }
 
-static __devexit int ath79_spi_remove(struct platform_device *pdev)
+static void __ath79_spi_remove(struct platform_device *pdev)
 {
 	struct ath79_spi *sp = platform_get_drvdata(pdev);
 
@@ -307,13 +307,23 @@ static __devexit int ath79_spi_remove(struct platform_device *pdev)
 	iounmap(sp->base);
 	platform_set_drvdata(pdev, NULL);
 	spi_master_put(sp->bitbang.master);
+}
 
+static __devexit int ath79_spi_remove(struct platform_device *pdev)
+{
+	__ath79_spi_remove(pdev);
 	return 0;
+}
+
+static void ath79_spi_shutdown(struct platform_device *pdev)
+{
+	__ath79_spi_remove(pdev);
 }
 
 static struct platform_driver ath79_spi_driver = {
 	.probe		= ath79_spi_probe,
 	.remove		= __devexit_p(ath79_spi_remove),
+	.shutdown	= ath79_spi_shutdown,
 	.driver		= {
 		.name	= DRV_NAME,
 		.owner	= THIS_MODULE,
