@@ -70,7 +70,8 @@ void ath79_device_reset_set(u32 mask)
 		reg = AR913X_RESET_REG_RESET_MODULE;
 	else if (soc_is_ar933x())
 		reg = AR933X_RESET_REG_RESET_MODULE;
-	else if (soc_is_ar934x())
+	else if (soc_is_ar934x() ||
+		 soc_is_qca955x())
 		reg = AR934X_RESET_REG_RESET_MODULE;
 	else
 		BUG();
@@ -96,7 +97,8 @@ void ath79_device_reset_clear(u32 mask)
 		reg = AR913X_RESET_REG_RESET_MODULE;
 	else if (soc_is_ar933x())
 		reg = AR933X_RESET_REG_RESET_MODULE;
-	else if (soc_is_ar934x())
+	else if (soc_is_ar934x() ||
+		 soc_is_qca955x())
 		reg = AR934X_RESET_REG_RESET_MODULE;
 	else
 		BUG();
