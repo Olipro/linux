@@ -75,6 +75,8 @@ static void __init ath79_usb_init_resource(struct resource res[2],
 					   unsigned long size,
 					   int irq)
 {
+	memset(res, 0, sizeof(res));
+
 	res[0].flags = IORESOURCE_MEM;
 	res[0].start = base;
 	res[0].end = base + size - 1;
@@ -219,6 +221,48 @@ static void __init ar934x_usb_setup(void)
 	platform_device_register(&ath79_ehci_device);
 }
 
+static void __init qca955x_usb_setup(void)
+{
+	struct platform_device *pdev;
+
+	ath79_usb_init_resource(ath79_ehci_resources,
+				QCA955X_EHCI0_BASE, QCA955X_EHCI_SIZE,
+				ATH79_IP3_IRQ(0));
+
+	pdev = platform_device_register_resndata(NULL, "ehci-platform", 0,
+						 ath79_ehci_resources,
+						 ARRAY_SIZE(ath79_ehci_resources),
+						 &ath79_ehci_pdata_v2,
+						 sizeof(ath79_ehci_pdata_v2));
+	if (IS_ERR(pdev)) {
+		pr_err("Unable to register USB %d device, err=%d\n", 0,
+			(int) PTR_ERR(pdev));
+		return;
+	}
+
+	pdev->dev.dma_mask = &ath79_ehci_dmamask;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ath79_usb_init_resource(ath79_ehci_resources,
+				QCA955X_EHCI1_BASE, QCA955X_EHCI_SIZE,
+				ATH79_IP3_IRQ(1));
+
+	pdev = platform_device_register_resndata(NULL, "ehci-platform", 1,
+						 ath79_ehci_resources,
+						 ARRAY_SIZE(ath79_ehci_resources),
+						 &ath79_ehci_pdata_v2,
+						 sizeof(ath79_ehci_pdata_v2));
+
+	if (IS_ERR(pdev)) {
+		pr_err("Unable to register USB %d device, err=%d\n", 1,
+			(int) PTR_ERR(pdev));
+		return;
+	}
+
+	pdev->dev.dma_mask = &ath79_ehci_dmamask;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+}
+
 void __init ath79_register_usb(void)
 {
 	if (soc_is_ar71xx())
@@ -233,6 +277,8 @@ void __init ath79_register_usb(void)
 		ar933x_usb_setup();
 	else if (soc_is_ar934x())
 		ar934x_usb_setup();
+	else if (soc_is_qca955x())
+		qca955x_usb_setup();
 	else
 		BUG();
 }
