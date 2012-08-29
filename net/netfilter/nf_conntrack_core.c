@@ -231,7 +231,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	nf_conntrack_free(ct);
 }
 
-void nf_ct_delete_from_lists(struct nf_conn *ct)
+static void nf_ct_delete_from_lists(struct nf_conn *ct)
 {
 	struct net *net = nf_ct_net(ct);
 
@@ -243,7 +243,6 @@ void nf_ct_delete_from_lists(struct nf_conn *ct)
 	clean_from_lists(ct);
 	spin_unlock_bh(&nf_conntrack_lock);
 }
-EXPORT_SYMBOL_GPL(nf_ct_delete_from_lists);
 
 static void death_by_event(unsigned long ul_conntrack)
 {
@@ -257,15 +256,13 @@ static void death_by_event(unsigned long ul_conntrack)
 		add_timer(&ct->timeout);
 		return;
 	}
-	/* we've got the event delivered, now it's dying */
-	set_bit(IPS_DYING_BIT, &ct->status);
 	spin_lock(&nf_conntrack_lock);
 	hlist_nulls_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
 	spin_unlock(&nf_conntrack_lock);
 	nf_ct_put(ct);
 }
 
-void nf_ct_insert_dying_list(struct nf_conn *ct)
+static void nf_ct_insert_dying_list(struct nf_conn *ct)
 {
 	struct net *net = nf_ct_net(ct);
 
@@ -280,27 +277,32 @@ void nf_ct_insert_dying_list(struct nf_conn *ct)
 		(random32() % net->ct.sysctl_events_retry_timeout);
 	add_timer(&ct->timeout);
 }
-EXPORT_SYMBOL_GPL(nf_ct_insert_dying_list);
 
-static void death_by_timeout(unsigned long ul_conntrack)
+bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report)
 {
-	struct nf_conn *ct = (void *)ul_conntrack;
 	struct nf_conn_tstamp *tstamp;
 
 	tstamp = nf_conn_tstamp_find(ct);
 	if (tstamp && tstamp->stop == 0)
 		tstamp->stop = ktime_to_ns(ktime_get_real());
 
-	if (!test_bit(IPS_DYING_BIT, &ct->status) &&
-	    unlikely(nf_conntrack_event(IPCT_DESTROY, ct) < 0)) {
+	if (!test_and_set_bit(IPS_DYING_BIT, &ct->status) &&
+	    unlikely(nf_conntrack_event_report(IPCT_DESTROY, ct, pid,
+								report) < 0)) {
 		/* destroy event was not delivered */
 		nf_ct_delete_from_lists(ct);
 		nf_ct_insert_dying_list(ct);
-		return;
+		return false;
 	}
-	set_bit(IPS_DYING_BIT, &ct->status);
 	nf_ct_delete_from_lists(ct);
 	nf_ct_put(ct);
+	return true;
+}
+EXPORT_SYMBOL_GPL(nf_ct_delete);
+
+static void death_by_timeout(unsigned long ul_conntrack)
+{
+	nf_ct_delete((struct nf_conn *)ul_conntrack, 0, 0);
 }
 
 /*
@@ -634,11 +636,9 @@ static noinline int early_drop(struct net *net, unsigned int hash)
 	if (!ct)
 		return dropped;
 
-	if (del_timer(&ct->timeout)) {
-		death_by_timeout((unsigned long)ct);
-		/* Check if we indeed killed this entry. Reliable event
-		   delivery may have inserted it into the dying list. */
-		if (test_bit(IPS_DYING_BIT, &ct->status)) {
+	if (!nf_ct_is_dying(ct) && del_timer(&ct->timeout)) {
+		/* Check if we indeed killed this entry */
+		if (nf_ct_delete(ct, 0, 0)) {
 			dropped = 1;
 			NF_CT_STAT_INC_ATOMIC(net, early_drop);
 		}
@@ -1124,8 +1124,8 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
 		}
 	}
 
-	if (del_timer(&ct->timeout)) {
-		ct->timeout.function((unsigned long)ct);
+	if (!nf_ct_is_dying(ct) && del_timer(&ct->timeout)) {
+		nf_ct_delete(ct, 0, 0);
 		return true;
 	}
 	return false;
@@ -1225,8 +1225,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
 	}
 	hlist_nulls_for_each_entry(h, n, &net->ct.unconfirmed, hnnode) {
 		ct = nf_ct_tuplehash_to_ctrack(h);
-		if (iter(ct, data))
-			set_bit(IPS_DYING_BIT, &ct->status);
+		iter(ct, data);
 	}
 	spin_unlock_bh(&nf_conntrack_lock);
 	return NULL;
@@ -1236,50 +1235,40 @@ found:
 	return ct;
 }
 
-void nf_ct_iterate_cleanup(struct net *net,
+void nf_ct_iterate_cleanup_new(struct net *net,
 			   int (*iter)(struct nf_conn *i, void *data),
-			   void *data)
+			   void *data, u32 pid, int report)
 {
 	struct nf_conn *ct;
 	unsigned int bucket = 0;
 
 	while ((ct = get_next_corpse(net, iter, data, &bucket)) != NULL) {
 		/* Time to push up daises... */
-		if (del_timer(&ct->timeout))
-			death_by_timeout((unsigned long)ct);
+		if (!nf_ct_is_dying(ct) && del_timer(&ct->timeout))
+			nf_ct_delete(ct, pid, report);
 		/* ... else the timer will get him soon. */
 
 		nf_ct_put(ct);
 	}
 }
+EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup_new);
+
+void nf_ct_iterate_cleanup(struct net *net,
+			   int (*iter)(struct nf_conn *i, void *data),
+			   void *data)
+{
+	nf_ct_iterate_cleanup_new(net, iter, data, 0, 0);
+}
 EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup);
 
-struct __nf_ct_flush_report {
-	u32 pid;
-	int report;
-};
-
-static int kill_report(struct nf_conn *i, void *data)
+static int kill_all(struct nf_conn *i, void *data)
 {
-	struct __nf_ct_flush_report *fr = (struct __nf_ct_flush_report *)data;
 	struct nf_conn_tstamp *tstamp;
 
 	tstamp = nf_conn_tstamp_find(i);
 	if (tstamp && tstamp->stop == 0)
 		tstamp->stop = ktime_to_ns(ktime_get_real());
 
-	/* If we fail to deliver the event, death_by_timeout() will retry */
-	if (nf_conntrack_event_report(IPCT_DESTROY, i,
-				      fr->pid, fr->report) < 0)
-		return 1;
-
-	/* Avoid the delivery of the destroy event in death_by_timeout(). */
-	set_bit(IPS_DYING_BIT, &i->status);
-	return 1;
-}
-
-static int kill_all(struct nf_conn *i, void *data)
-{
 	return 1;
 }
 
@@ -1295,11 +1284,7 @@ EXPORT_SYMBOL_GPL(nf_ct_free_hashtable);
 
 void nf_conntrack_flush_report(struct net *net, u32 pid, int report)
 {
-	struct __nf_ct_flush_report fr = {
-		.pid 	= pid,
-		.report = report,
-	};
-	nf_ct_iterate_cleanup(net, kill_report, &fr);
+	nf_ct_iterate_cleanup_new(net, kill_all, NULL, pid, report);
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
 
