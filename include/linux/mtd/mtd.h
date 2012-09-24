@@ -114,6 +114,7 @@ struct nand_ecclayout {
 
 struct module;	/* only needed for owner field in mtd_info */
 
+struct mtd_info;
 struct mtd_info {
 	u_char type;
 	uint32_t flags;
@@ -241,6 +242,9 @@ struct mtd_info {
 	struct module *owner;
 	struct device dev;
 	int usecount;
+
+	int (*refresh_device)(struct mtd_info *mtd);
+	struct mtd_info *split;
 };
 
 int mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
@@ -366,6 +370,7 @@ extern int mtd_device_parse_register(struct mtd_info *mtd,
 			      int defnr_parts);
 #define mtd_device_register(master, parts, nr_parts)	\
 	mtd_device_parse_register(master, NULL, NULL, parts, nr_parts)
+extern int mtd_device_refresh(struct mtd_info *master);
 extern int mtd_device_unregister(struct mtd_info *master);
 extern struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num);
 extern int __get_mtd_device(struct mtd_info *mtd);
