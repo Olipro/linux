@@ -21,6 +21,7 @@
 #include "linux/mtd/mtd.h"
 #include "linux/types.h"
 #include "linux/time.h"
+#include "mtd/mtd-abi.h"
 
 #include "yaffs_packedtags2.h"
 
@@ -71,7 +72,7 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_dev_t *dev, int nand_chunk,
 		yaffs_PackTags2(&pt, tags, !dev->param.no_tags_ecc);
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 17))
-	ops.mode = MTD_OOB_AUTO;
+	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.ooblen = (dev->param.inband_tags) ? 0 : packed_tags_size;
 	ops.len = dev->param.total_bytes_per_chunk;
 	ops.ooboffs = 0;
@@ -136,7 +137,7 @@ int nandmtd2_ReadChunkWithTagsFromNAND(yaffs_dev_t *dev, int nand_chunk,
 		retval = mtd->read(mtd, addr, dev->param.total_bytes_per_chunk,
 				&dummy, data);
 	else if (tags) {
-		ops.mode = MTD_OOB_AUTO;
+		ops.mode = MTD_OPS_AUTO_OOB;
 		ops.ooblen = packed_tags_size;
 		ops.len = data ? dev->data_bytes_per_chunk : packed_tags_size;
 		ops.ooboffs = 0;

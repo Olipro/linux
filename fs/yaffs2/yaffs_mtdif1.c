@@ -34,6 +34,7 @@
 #include "linux/version.h"
 #include "linux/types.h"
 #include "linux/mtd/mtd.h"
+#include "mtd/mtd-abi.h"
 
 /* Don't compile this module if we don't have MTD's mtd_oob_ops interface */
 #if (MTD_VERSION_CODE > MTD_VERSION(2, 6, 17))
@@ -127,7 +128,7 @@ int nandmtd1_WriteChunkWithTagsToNAND(yaffs_dev_t *dev,
 #endif
 
 	memset(&ops, 0, sizeof(ops));
-	ops.mode = MTD_OOB_AUTO;
+	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.len = (data) ? chunkBytes : 0;
 	ops.ooblen = YTAG1_SIZE;
 	ops.datbuf = (__u8 *)data;
@@ -179,7 +180,7 @@ int nandmtd1_ReadChunkWithTagsFromNAND(yaffs_dev_t *dev,
 	int deleted;
 
 	memset(&ops, 0, sizeof(ops));
-	ops.mode = MTD_OOB_AUTO;
+	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.len = (data) ? chunkBytes : 0;
 	ops.ooblen = YTAG1_SIZE;
 	ops.datbuf = data;
