@@ -24,5 +24,6 @@ extern void __iomem *twd_base;
 
 void twd_timer_setup(struct clock_event_device *);
 void twd_timer_stop(struct clock_event_device *);
+unsigned long twd_timer_get_rate(void);
 
 #endif
