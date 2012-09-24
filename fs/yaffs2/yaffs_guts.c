@@ -1709,11 +1709,11 @@ static int yaffs_change_obj_name(yaffs_obj_t *obj, yaffs_obj_t *new_dir,
 	}
 
 	/* TODO: Do we need this different handling for YAFFS2 and YAFFS1?? */
-	if (obj->my_dev->param.is_yaffs2)
+	// if (obj->my_dev->param.is_yaffs2)
 		unlinkOp = (new_dir == obj->my_dev->unlinked_dir);
-	else
+	/* else
 		unlinkOp = (new_dir == obj->my_dev->unlinked_dir
-			    && obj->variant_type == YAFFS_OBJECT_TYPE_FILE);
+			    && obj->variant_type == YAFFS_OBJECT_TYPE_FILE); */
 
 	deleteOp = (new_dir == obj->my_dev->del_dir);
 
