@@ -60,7 +60,7 @@ tplink_read_header(struct mtd_info *mtd, size_t offset)
 		goto err;
 
 	header_len = sizeof(struct tplink_fw_header);
-	ret = mtd->read(mtd, offset, header_len, &retlen,
+	ret = mtd->_read(mtd, offset, header_len, &retlen,
 			(unsigned char *) header);
 	if (ret)
 		goto err_free_header;
@@ -91,7 +91,7 @@ static int tplink_check_rootfs_magic(struct mtd_info *mtd, size_t offset)
 	size_t retlen;
 	int ret;
 
-	ret = mtd->read(mtd, offset, sizeof(magic), &retlen,
+	ret = mtd->_read(mtd, offset, sizeof(magic), &retlen,
 			(unsigned char *) &magic);
 	if (ret)
 		return ret;
