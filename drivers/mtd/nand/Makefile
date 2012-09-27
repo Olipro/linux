@@ -11,6 +11,7 @@ obj-$(CONFIG_MTD_SM_COMMON) 		+= sm_common.o
 obj-$(CONFIG_MTD_NAND_CAFE)		+= cafe_nand.o
 obj-$(CONFIG_MTD_NAND_SPIA)		+= spia.o
 obj-$(CONFIG_MTD_NAND_AMS_DELTA)	+= ams-delta.o
+obj-$(CONFIG_MTD_NAND_AR934X)		+= ar934x_nfc.o
 obj-$(CONFIG_MTD_NAND_AUTCPU12)		+= autcpu12.o
 obj-$(CONFIG_MTD_NAND_DENALI)		+= denali.o
 obj-$(CONFIG_MTD_NAND_AU1550)		+= au1550nd.o
