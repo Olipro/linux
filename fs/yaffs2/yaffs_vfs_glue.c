@@ -220,6 +220,29 @@ static struct inode *yaffs_iget(struct super_block *sb, unsigned long ino);
 #define yaffs_SuperToDevice(sb)	((yaffs_dev_t *)sb->u.generic_sbp)
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0))
+static inline void yaffs_set_nlink(struct inode *inode, unsigned int nlink)
+{
+	set_nlink(inode, nlink);
+}
+
+static inline void yaffs_dec_link_count(struct inode *inode)
+{
+	inode_dec_link_count(inode);
+}
+#else
+static inline void yaffs_set_nlink(struct inode *inode, unsigned int nlink)
+{
+	inode->i_nlink = nlink;
+}
+
+static inline void yaffs_dec_link_count(struct inode *inode)
+{
+	inode->i_nlink--;
+	mark_inode_dirty(inode)
+}
+#endif
+
 
 #define update_dir_time(dir) do {\
 			(dir)->i_ctime = (dir)->i_mtime = CURRENT_TIME; \
@@ -238,7 +261,10 @@ static int yaffs_file_flush(struct file *file, fl_owner_t id);
 static int yaffs_file_flush(struct file *file);
 #endif
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0))
+static int yaffs_sync_object(struct file *file, loff_t start, loff_t end,
+			     int datasync);
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34))
 static int yaffs_sync_object(struct file *file, int datasync);
 #else
 static int yaffs_sync_object(struct file *file, struct dentry *dentry,
@@ -1362,7 +1388,7 @@ static void yaffs_fill_inode_from_obj(struct inode *inode, yaffs_obj_t *obj)
 		inode->i_size = yaffs_get_obj_length(obj);
 		inode->i_blocks = (inode->i_size + 511) >> 9;
 
-		inode->i_nlink = yaffs_get_obj_link_count(obj);
+		yaffs_set_nlink(inode, yaffs_get_obj_link_count(obj));
 
 		T(YAFFS_TRACE_OS,
 			(TSTR("yaffs_fill_inode mode %x uid %d gid %d size %d count %d\n"),
@@ -1810,10 +1836,9 @@ static int yaffs_unlink(struct inode *dir, struct dentry *dentry)
 	retVal = yaffs_unlinker(obj, dentry->d_name.name);
 
 	if (retVal == YAFFS_OK) {
-		dentry->d_inode->i_nlink--;
+		yaffs_dec_link_count(dentry->d_inode);
 		dir->i_version++;
 		yaffs_gross_unlock(dev);
-		mark_inode_dirty(dentry->d_inode);
 		update_dir_time(dir);
 		return 0;
 	}
@@ -1844,7 +1869,8 @@ static int yaffs_link(struct dentry *old_dentry, struct inode *dir,
 			obj);
 
 	if (link) {
-		old_dentry->d_inode->i_nlink = yaffs_get_obj_link_count(obj);
+		yaffs_set_nlink(old_dentry->d_inode,
+				yaffs_get_obj_link_count(obj));
 		d_instantiate(dentry, old_dentry->d_inode);
 		atomic_inc(&old_dentry->d_inode->i_count);
 		T(YAFFS_TRACE_OS,
@@ -1894,7 +1920,10 @@ static int yaffs_symlink(struct inode *dir, struct dentry *dentry,
 	return -ENOMEM;
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0))
+static int yaffs_sync_object(struct file *file, loff_t start, loff_t end,
+			     int datasync)
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34))
 static int yaffs_sync_object(struct file *file, int datasync)
 #else
 static int yaffs_sync_object(struct file *file, struct dentry *dentry,
@@ -1961,10 +1990,8 @@ static int yaffs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	yaffs_gross_unlock(dev);
 
 	if (retVal == YAFFS_OK) {
-		if (target) {
-			new_dentry->d_inode->i_nlink--;
-			mark_inode_dirty(new_dentry->d_inode);
-		}
+		if (target)
+			yaffs_dec_link_count(new_dentry->d_inode);
 
 		update_dir_time(old_dir);
 		if(old_dir != new_dir)
@@ -3125,7 +3152,7 @@ static struct dentry *yaffs2_read_super(struct file_system_type *fs,
 			void *data)
 {
 	return mount_bdev(fs, flags, dev_name, data,
-		yaffs_internal_read_super_mtd);
+		yaffs2_internal_read_super_mtd);
 }
 
 static struct file_system_type yaffs2_fs_type = {
