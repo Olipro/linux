@@ -33,6 +33,7 @@ struct twd_local_timer name __initdata = {	\
 };
 
 int twd_local_timer_register(struct twd_local_timer *);
+unsigned long twd_timer_get_rate(void);
 
 #ifdef CONFIG_HAVE_ARM_TWD
 void twd_local_timer_of_register(void);

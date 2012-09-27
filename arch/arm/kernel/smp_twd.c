@@ -257,6 +257,13 @@ static int __cpuinit twd_timer_setup(struct clock_event_device *clk)
 	return 0;
 }
 
+/* Needed by mpcore_wdt */
+unsigned long twd_timer_get_rate(void)
+{
+	return twd_timer_rate;
+}
+EXPORT_SYMBOL_GPL(twd_timer_get_rate);
+
 static struct local_timer_ops twd_lt_ops __cpuinitdata = {
 	.setup	= twd_timer_setup,
 	.stop	= twd_timer_stop,
