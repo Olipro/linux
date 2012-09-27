@@ -82,6 +82,7 @@
 #define IFF_TEAM_PORT	0x40000		/* device used as team port */
 #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
 
+#define IFF_NO_IP_ALIGN	0x80000		/* do not ip-align allocated rx pkts */
 
 #define IF_GET_IFACE	0x0001		/* for querying only */
 #define IF_GET_PROTO	0x0002
