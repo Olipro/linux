@@ -47,6 +47,7 @@ obj-$(CONFIG_SPI_PPC4xx)		+= spi-ppc4xx.o
 obj-$(CONFIG_SPI_PXA2XX)		+= spi-pxa2xx.o
 obj-$(CONFIG_SPI_PXA2XX_PCI)		+= spi-pxa2xx-pci.o
 obj-$(CONFIG_SPI_RB4XX)			+= spi-rb4xx.o
+obj-$(CONFIG_SPI_RB4XX_CPLD)		+= spi-rb4xx-cpld.o
 obj-$(CONFIG_SPI_RSPI)			+= spi-rspi.o
 obj-$(CONFIG_SPI_S3C24XX)		+= spi-s3c24xx-hw.o
 spi-s3c24xx-hw-y			:= spi-s3c24xx.o
