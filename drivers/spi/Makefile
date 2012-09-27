@@ -65,5 +65,5 @@ obj-$(CONFIG_SPI_TI_SSP)		+= spi-ti-ssp.o
 obj-$(CONFIG_SPI_TLE62X0)		+= spi-tle62x0.o
 obj-$(CONFIG_SPI_TOPCLIFF_PCH)		+= spi-topcliff-pch.o
 obj-$(CONFIG_SPI_TXX9)			+= spi-txx9.o
+obj-$(CONFIG_SPI_VSC7385)		+= spi-vsc7385.o
 obj-$(CONFIG_SPI_XILINX)		+= spi-xilinx.o
-
